@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def configure_logging():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -29,7 +30,9 @@ def configure_logging():
 
     return logger
 
+
 logger = configure_logging()
+
 
 # DSPy will generate a prompt from this class, and ensure the LLM's output satisfies the type annotations.
 class Judge(dspy.Signature):
@@ -38,10 +41,14 @@ class Judge(dspy.Signature):
     first_image_evaluation: str = dspy.OutputField()
     second_image_evaluation: str = dspy.OutputField()
     judges_comments: str = dspy.OutputField()
-    choice: Literal["1", "2"] = dspy.OutputField(desc=
-                                                 ("Consider the first image as choice 1 and the second image as choice 2. The choice must be either '1' or '2'.\n"
-                                                  "When making a choice, consider the overall quality, composition, interest, sharpness, clarity, lighting and appeal of the images, "
-                                                  "and choose the one that you think is better."))
+    choice: Literal["1", "2"] = dspy.OutputField(
+        desc=(
+            "Consider the first image as choice 1 and the second image as choice 2. The choice must be either '1' or '2'.\n"
+            "When making a choice, consider the overall quality, composition, interest, sharpness, clarity, lighting and appeal of the images, "
+            "and choose the one that you think is better."
+        )
+    )
+
 
 class TournamentLogger:
     def __init__(self, log_file):
@@ -69,6 +76,7 @@ class TournamentLogger:
             }
             f.write(json.dumps(entry) + "\n")
 
+
 class ImageProcessor:
     def __init__(self, max_side=900):
         self.max_side = max_side
@@ -83,13 +91,24 @@ class ImageProcessor:
 
 
 class PhotoRanker:
-    def __init__(self, image_processor: ImageProcessor, tournament_logger: TournamentLogger, judge: dspy.Signature, module: dspy.Module):
+    def __init__(
+        self,
+        image_processor: ImageProcessor,
+        tournament_logger: TournamentLogger,
+        judge: dspy.Signature,
+        module: dspy.Module,
+    ):
         self.image_processor = image_processor
         self.tournament_logger = tournament_logger
 
-        if 'first_image' not in judge.input_fields or 'second_image' not in judge.input_fields:
-            raise ValueError("Judge signature must have 'first_image' and 'second_image' fields.")
-        if 'choice' not in judge.output_fields:
+        if (
+            "first_image" not in judge.input_fields
+            or "second_image" not in judge.input_fields
+        ):
+            raise ValueError(
+                "Judge signature must have 'first_image' and 'second_image' fields."
+            )
+        if "choice" not in judge.output_fields:
             raise ValueError("Judge signature must have 'choice' field.")
 
         self.judge = module(judge)
@@ -109,13 +128,12 @@ class PhotoRanker:
         self.tournament_logger.log_decision(entries, winner, r)
         return winner
 
-
     def round(self, entries):
         """Conduct a single elimination round, comparing pairs of images and returning the winners."""
         winners = []
         for i in tqdm(range(0, len(entries), 2)):
             if i + 1 < len(entries):
-                winner = self.compare(entries[i:i + 2])
+                winner = self.compare(entries[i : i + 2])
                 if winner is None:
                     raise ValueError("Comparison returned None, which is unexpected.")
                 winners.append(winner)
@@ -150,6 +168,7 @@ class PhotoRanker:
 
         return entries[0] if entries else None
 
+
 def get_initial_files(path, filetypes):
     """Collect all image files in the specified path with the given filetypes."""
     filetypes = filetypes.split(",")
@@ -162,16 +181,44 @@ def get_initial_files(path, filetypes):
     logger.info(f"Found {len(entries)} files in {path} with extensions {filetypes}.")
     return entries
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run a photo ranking tournament.", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Run a photo ranking tournament.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument("path", type=str, help="Path to the images to rank.")
-    parser.add_argument("--size", type=int, default=900, help="Images are resized to fit within this size (longest side, preserving aspect ratio). Smaller is faster.")
-    parser.add_argument("--filetypes", type=str, default="jpg,jpeg,png,JPG,JPEG,PNG",
-                        help="Comma-separated list of image file extensions to include in the tournament. Case sensitive.")
-    parser.add_argument("--model", type=str, default="gemma3:4b", help="Ollama vision model to use for judging.")
-    parser.add_argument("--module", type=str, default="ChainOfThought", choices=["ChainOfThought", "Predict"],
-                        help="DSPy module to use as the judge. Predict is the fastest, but ChainOfThought is probably more accurate.")
-    parser.add_argument("--decision-log", type=str, default="decisions.jsonl", help="File to log decisions.")
+    parser.add_argument(
+        "--size",
+        type=int,
+        default=900,
+        help="Images are resized to fit within this size (longest side, preserving aspect ratio). Smaller is faster.",
+    )
+    parser.add_argument(
+        "--filetypes",
+        type=str,
+        default="jpg,jpeg,png,JPG,JPEG,PNG",
+        help="Comma-separated list of image file extensions to include in the tournament. Case sensitive.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="gemma3:4b",
+        help="Ollama vision model to use for judging.",
+    )
+    parser.add_argument(
+        "--module",
+        type=str,
+        default="ChainOfThought",
+        choices=["ChainOfThought", "Predict"],
+        help="DSPy module to use as the judge. Predict is the fastest, but ChainOfThought is probably more accurate.",
+    )
+    parser.add_argument(
+        "--decision-log",
+        type=str,
+        default="decisions.jsonl",
+        help="File to log decisions.",
+    )
 
     args = parser.parse_args()
 
@@ -217,7 +264,9 @@ if __name__ == "__main__":
 
     entries = get_initial_files(args.path, args.filetypes)
     if len(entries) < 2:
-        raise ValueError("Not enough images to conduct a tournament. At least two images are required.")
+        raise ValueError(
+            "Not enough images to conduct a tournament. At least two images are required."
+        )
 
     winner = tourny.tournament(entries)
     print(winner)
